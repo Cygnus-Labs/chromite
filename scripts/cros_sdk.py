@@ -114,6 +114,9 @@ def FetchRemoteTarballs(storage_dir, urls):
 
 
 def CreateChroot(chroot_path, sdk_tarball, cache_dir,
+                 extra_portdir_overlay_path,
+                 extra_portdir_overlay_name,
+                 print_commands,
                  nousepkg=False, nogetbinpkg=False):
   """Creates a new chroot from a given SDK"""
 
@@ -125,8 +128,16 @@ def CreateChroot(chroot_path, sdk_tarball, cache_dir,
   elif nogetbinpkg:
     cmd.append('--nogetbinpkg')
 
+  if extra_portdir_overlay_path:
+    if not extra_portdir_overlay_name:
+      raise SystemExit((
+      'Specifying --extra-portdir-overlay-path ' +
+      'requires --extra-portdir-overlay-path to be set as well.'))
+    cmd.append('--extra_portdir_overlay_path', extra_portdir_overlay_path)
+    cmd.append('--extra_portdir_overlay_name', extra_portdir_overlay_name)
+
   try:
-    cros_build_lib.RunCommand(cmd, print_cmd=False)
+    cros_build_lib.RunCommand(cmd, print_cmd=print_commands)
   except cros_build_lib.RunCommandError:
     raise SystemExit('Running %r failed!' % cmd)
 
@@ -265,6 +276,20 @@ If given args those are passed to the chroot environment, and executed."""
                              Use file:// for local files.'''))
   parser.add_option('--sdk-version', default=sdk_latest_version,
                     help='Use this sdk version. Current is %default.')
+
+  commands.add_option(
+      '--extra-portdir-overlay-path', default=None, type="string",
+      help='Add the directory at this path to the PORTDIR_OVERLAY list. '
+      'The path is relative to the directory containing the "chromite", '
+      '"chroot", and "src", folders.')
+  commands.add_option(
+      '--extra-portdir-overlay-name', default=None, type="string",
+      help='The name of the extra portdir folder inside the chroot'
+      'This does not work without specifying --extra-portdir-path.')
+  commands.add_option(
+      '--print-commands', action='store_true', default=False,
+      help='Print any subcommands called using with shell.')
+
   options, chroot_command = parser.parse_args(argv)
 
   # Some sanity checks first, before we ask for sudo credentials.
@@ -368,6 +393,9 @@ If given args those are passed to the chroot environment, and executed."""
       if options.create:
         lock.write_lock()
         CreateChroot(options.chroot, sdk_tarball, options.cache_dir,
+                     options.extra_portdir_overlay_path,
+                     options.extra_portdir_overlay_name,
+                     options.print_commands,
                      nousepkg=(options.bootstrap or options.nousepkg),
                      nogetbinpkg=options.nogetbinpkg)
 
